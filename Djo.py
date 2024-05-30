@@ -49,28 +49,46 @@ async def play_next(ctx):
     if song_queue:
         current_song = song_queue.pop(0)
         url, title = current_song
+        print('FFmpeg options:', discord.FFmpegPCMAudio(executable="ffmpeg", source=url))  # Print FFmpeg options
         await ctx.send(f'Now playing: {title}')
         vc = ctx.voice_client
         vc.play(discord.FFmpegPCMAudio(executable="ffmpeg", source=url), after=lambda e: bot.loop.create_task(play_next(ctx)))
     else:
         current_song = None
 
+
 # Bot commands
 @bot.command()
 async def play(ctx, *, query):
-    # Check if the author is in a voice channel
     if not ctx.author.voice:
         await ctx.send('You need to join a voice channel first.')
         return
 
-    # Check if the bot is already in a voice channel
     vc = ctx.voice_client
-    if vc:
-        if vc.channel != ctx.author.voice.channel:
-            await vc.move_to(ctx.author.voice.channel)
-    else:
-        # Bot is not in a voice channel, so connect to the author's voice channel
+    if not vc:
         vc = await ctx.author.voice.channel.connect()
+
+        # Check bot's permissions in the voice channel
+        permissions = vc.channel.permissions_for(ctx.guild.me)
+        if not permissions.connect or not permissions.speak:
+            await ctx.send("I don't have permission to connect or speak in that channel.")
+            return
+
+        print('Bot permissions:', permissions)  # Print the bot's permissions
+
+    url, title = None, None
+    if "youtube.com" in query or "youtu.be" in query:
+        url, title = query, query
+    elif "spotify.com" in query:
+        url, title = query, query
+    else:
+        url, title = search_youtube(query)
+
+    song_queue.append((url, title))
+    if not vc.is_playing():
+        await play_next(ctx)
+
+
 
     # Rest of your play command logic goes here
 
