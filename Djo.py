@@ -10,7 +10,7 @@ import os
 intents = discord.Intents.default()
 intents.presences = True  # Enable presence intent
 intents.members = True    # Enable members intent
-intents.messages = True  # Enable message content intent
+intents.message_content = True  # Enable message content intent
 bot = commands.Bot(command_prefix='$', intents=intents)
 
 # Spotify setup
