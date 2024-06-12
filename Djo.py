@@ -1,27 +1,18 @@
 import discord
 from discord.ext import commands
 import yt_dlp
-from fuzzywuzzy import process
-from spotipy import Spotify
-from spotipy.oauth2 import SpotifyClientCredentials
 import os
 
 # Bot setup
 intents = discord.Intents.default()
-intents.presences = True  # Enable presence intent
-intents.members = True    # Enable members intent
-intents.message_content = True  # Enable message content intent
+intents.presences = True
+intents.members = True
+intents.message_content = True
 bot = commands.Bot(command_prefix='$', intents=intents)
-
-# Spotify setup
-SPOTIFY_CLIENT_ID = '817d128d2cbc48bebbea3f3e52ea2345'
-SPOTIFY_CLIENT_SECRET = 'y7c966497ab5e49778c8cd53cc6bcef71'
-sp = Spotify(client_credentials_manager=SpotifyClientCredentials(
-    client_id=SPOTIFY_CLIENT_ID, client_secret=SPOTIFY_CLIENT_SECRET))
 
 # Global queue and current song
 song_queue = []
-current_song = None 
+current_song = None
 
 # Helper functions
 def search_youtube(query):
@@ -29,35 +20,26 @@ def search_youtube(query):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
             info = ydl.extract_info(f"ytsearch:{query}", download=False)['entries'][0]
-            return info['webpage_url'], info['title']
+            return info['url'], info['title']
         except Exception as e:
             print(f"Error searching YouTube: {e}")
             return None, None
-
-def search_spotify(query):
-    try:
-        results = sp.search(q=query, limit=1)
-        if results['tracks']['items']:
-            track = results['tracks']['items'][0]
-            return track['external_urls']['spotify'], track['name']
-    except Exception as e:
-        print(f"Error searching Spotify: {e}")
-    return None, None
 
 async def play_next(ctx):
     global current_song
     if song_queue:
         current_song = song_queue.pop(0)
         url, title = current_song
-        print('FFmpeg options:', discord.FFmpegPCMAudio(executable="ffmpeg", source=url))  # Print FFmpeg options
         await ctx.send(f'Now playing: {title}')
         vc = ctx.voice_client
-        vc.play(discord.FFmpegPCMAudio(executable="ffmpeg", source=url), after=lambda e: bot.loop.create_task(play_next(ctx)))
+        ffmpeg_options = {
+            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+            'options': '-vn',
+        }
+        vc.play(discord.FFmpegPCMAudio(url, **ffmpeg_options), after=lambda e: bot.loop.create_task(play_next(ctx)))
     else:
         current_song = None
 
-
-# Bot commands
 @bot.command()
 async def play(ctx, *, query):
     if not ctx.author.voice:
@@ -76,21 +58,43 @@ async def play(ctx, *, query):
 
         print('Bot permissions:', permissions)  # Print the bot's permissions
 
-    url, title = None, None
     if "youtube.com" in query or "youtu.be" in query:
-        url, title = query, query
-    elif "spotify.com" in query:
-        url, title = query, query
+        try:
+            # Check if the link is a playlist
+            if "playlist" in query:
+                # Extract video titles from the playlist
+                ydl_opts = {
+                    'extract_flat': True,
+                    'format': 'bestaudio'
+                }
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    playlist_info = ydl.extract_info(query, download=False)
+                    titles = [entry['title'] for entry in playlist_info['entries']]
+
+                # Search for each title on YouTube and add to the queue
+                for title in titles:
+                    url, title = search_youtube(title)
+                    if url and title:
+                        song_queue.append((url, title))
+            else:
+                # Get the video URL and title
+                ydl_opts = {'format': 'bestaudio'}
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(query, download=False)
+                    url = info['url']
+                    title = info['title']
+                    song_queue.append((url, title))
+        except Exception as e:
+            print(f"Error processing YouTube link: {e}")
+            await ctx.send("An error occurred while processing the YouTube link.")
+            return
     else:
         url, title = search_youtube(query)
 
-    song_queue.append((url, title))
-    if not vc.is_playing():
-        await play_next(ctx)
-
-
-
-    # Rest of your play command logic goes here
+    if url and title:
+        song_queue.append((url, title))
+        if not vc.is_playing():
+            await play_next(ctx)
 
 @bot.command()
 async def skip(ctx):
