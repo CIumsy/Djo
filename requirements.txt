@@ -3,7 +3,6 @@ yt-dlp==2024.5.27
 pydub==0.25.1
 Flask
 werkzeug
-threading
 pyyaml==6.0.1
 python-dotenv==1.0.1
 PyNaCl
