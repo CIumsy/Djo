@@ -5,6 +5,7 @@ import os
 import random
 from pydub import AudioSegment
 from flask import Flask
+import threading
 
 # Bot setup
 intents = discord.Intents.default()
@@ -20,6 +21,14 @@ loop_mode = False
 
 # Flask setup
 app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "The bot is running"
+
+def run_flask():
+    port = int(os.getenv("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
 
 # Helper functions
 def search_youtube(query):
@@ -219,32 +228,27 @@ async def seek(ctx, position):
         if total_seconds is not None:
             vc.stop()
             vc.play(discord.FFmpegPCMAudio(current_song[0], options=f'-vn -ss {total_seconds}'), after=lambda e: bot.loop.create_task(play_next(ctx)))
-            await ctx.send(f'Seeking to {position}.')
+            await ctx.send(f'Seeked to {position}.')
         else:
-            await ctx.send('Invalid position format. Please use HH:MM:SS or MM:SS.')
+            await ctx.send('Invalid time format. Please use HH:MM:SS or MM:SS.')
     else:
         await ctx.send('No music is playing right now.')
 
-def parse_time(position):
-    parts = position.split(':')
-    if len(parts) == 2 and parts[0].isdigit() and len(parts[0]) == 2 and parts[1].isdigit() and len(parts[1]) == 2:
-        return int(parts[0]) * 60 + int(parts[1])
-    elif len(parts) == 3 and parts[0].isdigit() and len(parts[0]) == 2 and parts[1].isdigit() and len(parts[1]) == 2 and parts[2].isdigit() and len(parts[2]) == 2:
-        return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
-    return None
+def parse_time(time_string):
+    try:
+        parts = list(map(int, time_string.split(':')))
+        if len(parts) == 2:
+            minutes, seconds = parts
+            return minutes * 60 + seconds
+        elif len(parts) == 3:
+            hours, minutes, seconds = parts
+            return hours * 3600 + minutes * 60 + seconds
+    except ValueError:
+        return None
 
-@bot.event
-async def on_ready():
-    print(f'Bot connected as {bot.user}')
+# Starting the Flask server in a separate thread
+flask_thread = threading.Thread(target=run_flask)
+flask_thread.start()
 
-# Flask route for basic web service
-@app.route('/')
-def index():
-    return "Bot is online."
-
-# Run Flask web service in the background
-if __name__ == '__main__':
-    bot.run(os.getenv('DISCORD_TOKEN'))  # Replace with your actual bot token
-    app.run(debug=True, port=8080)  # Flask runs on port 8080 (specified by Render.com)
-
-# End of bot script
+# Running the bot
+bot.run(os.getenv('DISCORD_TOKEN'))
