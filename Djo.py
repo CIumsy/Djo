@@ -244,7 +244,7 @@ def index():
 
 # Run Flask web service in the background
 if __name__ == '__main__':
-    bot.run('YOUR_DISCORD_BOT_TOKEN')  # Replace with your actual bot token
+    bot.run(os.getenv('DISCORD_TOKEN'))  # Replace with your actual bot token
     app.run(debug=True, port=8080)  # Flask runs on port 8080 (specified by Render.com)
 
 # End of bot script
