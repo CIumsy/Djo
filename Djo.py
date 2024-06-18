@@ -4,6 +4,7 @@ import yt_dlp
 import os
 import random
 from pydub import AudioSegment
+from flask import Flask
 
 # Bot setup
 intents = discord.Intents.default()
@@ -16,6 +17,9 @@ bot = commands.Bot(command_prefix='$', intents=intents)
 song_queue = []
 current_song = None
 loop_mode = False
+
+# Flask setup
+app = Flask(__name__)
 
 # Helper functions
 def search_youtube(query):
@@ -233,5 +237,14 @@ def parse_time(position):
 async def on_ready():
     print(f'Bot connected as {bot.user}')
 
-token = os.environ.get('DISCORD_TOKEN')
-bot.run(token)
+# Flask route for basic web service
+@app.route('/')
+def index():
+    return "Bot is online."
+
+# Run Flask web service in the background
+if __name__ == '__main__':
+    bot.run('YOUR_DISCORD_BOT_TOKEN')  # Replace with your actual bot token
+    app.run(debug=True, port=8080)  # Flask runs on port 8080 (specified by Render.com)
+
+# End of bot script
