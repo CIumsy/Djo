@@ -1,6 +1,7 @@
 discord.py==2.3.2
 yt-dlp==2024.5.27
 pydub==0.25.1
-Flask==2.0.2
+Flask
+werkzeug
 pyyaml==6.0.1
 python-dotenv==1.0.1
