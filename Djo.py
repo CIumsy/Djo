@@ -54,7 +54,13 @@ async def play_next(ctx):
             'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
             'options': '-vn',
         }
-        vc.play(discord.FFmpegPCMAudio(url, **ffmpeg_options), after=lambda e: bot.loop.create_task(play_next(ctx)))
+        try:
+            vc.play(discord.FFmpegPCMAudio(url, **ffmpeg_options), after=lambda e: bot.loop.create_task(play_next(ctx)))
+        except Exception as e:
+            print(f"Error with FFmpeg: {e}")
+            await ctx.send("An error occurred while playing the song. Skipping to the next one.")
+            await play_next(ctx)
+
         if loop_mode:
             song_queue.append(current_song)
     else:
@@ -227,8 +233,8 @@ async def seek(ctx, position):
         total_seconds = parse_time(position)
         if total_seconds is not None:
             vc.stop()
-            vc.play(discord.FFmpegPCMAudio(current_song[0], options=f'-vn -ss {total_seconds}'), after=lambda e: bot.loop.create_task(play_next(ctx)))
-            await ctx.send(f'Seeked to {position}.')
+            vc.play(discord.FFmpegPCMAudio(current_song[0], before_options=f"-ss {total_seconds}", options="-vn"), after=lambda e: bot.loop.create_task(play_next(ctx)))
+            await ctx.send(f'Seeking to {position} in the current song.')
         else:
             await ctx.send('Invalid time format. Please use HH:MM:SS or MM:SS.')
     else:
